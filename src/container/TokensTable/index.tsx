@@ -20,11 +20,14 @@ import { ArrowUpDown, ChevronDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -49,6 +52,9 @@ import {
   SortableContext,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 // needed for row & cell level scope DnD setup
 import { useSortable } from "@dnd-kit/sortable";
@@ -57,6 +63,16 @@ import { useState } from "react";
 import data, { Coin } from "@/data/coinList";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const ResponsiveLine = dynamic(
   () => import("@nivo/line").then((m) => m.ResponsiveLine),
@@ -79,7 +95,9 @@ export const columns: ColumnDef<Coin>[] = [
       );
     },
     cell: ({ row }) => (
-      <div className="capitalize">{row.getValue("market_cap_rank")}</div>
+      <div className="capitalize text-center">
+        {row.getValue("market_cap_rank")}
+      </div>
     ),
     size: 60,
     enableSorting: true,
@@ -101,7 +119,9 @@ export const columns: ColumnDef<Coin>[] = [
       );
     },
     size: 100,
-    cell: ({ row }) => <div className="capitalize">{row.getValue("name")}</div>,
+    cell: ({ row }) => (
+      <div className="capitalize text-center">{row.getValue("name")}</div>
+    ),
     enableSorting: true,
     enableHiding: false,
     enablePinning: true,
@@ -121,7 +141,7 @@ export const columns: ColumnDef<Coin>[] = [
       );
     },
     cell: ({ row }) => (
-      <div>
+      <div className="text-end">
         {new Intl.NumberFormat("en-US", {
           currency: "USD",
           style: "currency",
@@ -150,7 +170,7 @@ export const columns: ColumnDef<Coin>[] = [
       );
       return (
         <div
-          className={cn({
+          className={cn("text-end", {
             "text-green-500": Math.sign(value) === 1,
             "text-red-500": Math.sign(value) !== 1,
           })}
@@ -185,7 +205,7 @@ export const columns: ColumnDef<Coin>[] = [
       );
       return (
         <div
-          className={cn({
+          className={cn("text-end", {
             "text-green-500": Math.sign(value) === 1,
             "text-red-500": Math.sign(value) !== 1,
           })}
@@ -220,7 +240,7 @@ export const columns: ColumnDef<Coin>[] = [
       );
       return (
         <div
-          className={cn({
+          className={cn("text-end", {
             "text-green-500": Math.sign(value) === 1,
             "text-red-500": Math.sign(value) !== 1,
           })}
@@ -250,7 +270,7 @@ export const columns: ColumnDef<Coin>[] = [
       );
     },
     cell: ({ row }) => (
-      <div>
+      <div className="text-end">
         {new Intl.NumberFormat("en-US", {
           currency: "USD",
           style: "currency",
@@ -274,7 +294,7 @@ export const columns: ColumnDef<Coin>[] = [
       );
     },
     cell: ({ row }) => (
-      <div>
+      <div className="text-end">
         {new Intl.NumberFormat("en-US", {
           currency: "USD",
           style: "currency",
@@ -306,7 +326,7 @@ export const columns: ColumnDef<Coin>[] = [
       ];
 
       return (
-        <div style={{ height: "80px", width: "100%" }}>
+        <div style={{ height: "60px", width: "100%" }}>
           <ResponsiveLine
             data={formattedData}
             margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
@@ -343,6 +363,18 @@ export const columns: ColumnDef<Coin>[] = [
     enableSorting: false,
   },
 ];
+
+const columnLabels: Record<string, string> = {
+  market_cap_rank: "Market Cap Rank",
+  name: "Coin Name",
+  current_price: "Current Price",
+  price_change_percentage_1h_in_currency: "1 Hour Change",
+  price_change_percentage_24h_in_currency: "24 Hour Change",
+  price_change_percentage_7d_in_currency: "7 Day Change",
+  total_volume: "Total Volume",
+  market_cap: "Market Cap",
+  sparkline_in_7d: "Last 7 Days",
+};
 
 const DraggableTableHeader = ({
   header,
@@ -403,6 +435,12 @@ const DragAlongCell = ({ cell }: { cell: Cell<Coin, unknown> }) => {
   );
 };
 
+const FormSchema = z.object({
+  items: z.array(z.string()).refine((value) => value.some((item) => item), {
+    message: "You have to select at least one item.",
+  }),
+});
+
 function DataTableDemo() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -419,6 +457,12 @@ function DataTableDemo() {
     right: [],
   });
   const [rowSelection, setRowSelection] = useState({});
+  const form = useForm<z.infer<typeof FormSchema>>({
+    resolver: zodResolver(FormSchema),
+    defaultValues: {
+      items: ["recents", "home"],
+    },
+  });
 
   const table = useReactTable({
     data,
@@ -444,6 +488,12 @@ function DataTableDemo() {
     },
   });
 
+  const sensors = useSensors(
+    useSensor(MouseSensor, {}),
+    useSensor(TouchSensor, {}),
+    useSensor(KeyboardSensor, {})
+  );
+
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (active && over && active.id !== over.id) {
@@ -455,11 +505,18 @@ function DataTableDemo() {
     }
   }
 
-  const sensors = useSensors(
-    useSensor(MouseSensor, {}),
-    useSensor(TouchSensor, {}),
-    useSensor(KeyboardSensor, {})
-  );
+  function onSubmit(data: z.infer<typeof FormSchema>) {
+    console.log(data);
+
+    // toast({
+    //   title: "You submitted the following values:",
+    //   description: (
+    //     <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
+    //       <code className="text-white">{JSON.stringify(data, null, 2)}</code>
+    //     </pre>
+    //   ),
+    // });
+  }
 
   return (
     <>
@@ -471,32 +528,94 @@ function DataTableDemo() {
       >
         <div className="w-full">
           <div className="flex items-center py-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            <Dialog>
+              <DialogTrigger asChild>
                 <Button variant="outline" className="ml-auto">
-                  Columns <ChevronDown />
+                  Customize
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {table
-                  .getAllColumns()
-                  .filter((column) => column.getCanHide())
-                  .map((column) => {
-                    return (
-                      <DropdownMenuCheckboxItem
-                        key={column.id}
-                        className="capitalize"
-                        checked={column.getIsVisible()}
-                        onCheckedChange={(value) =>
-                          column.toggleVisibility(!!value)
-                        }
-                      >
-                        {column.id}
-                      </DropdownMenuCheckboxItem>
-                    );
-                  })}
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </DialogTrigger>
+              <DialogContent className="bg-white">
+                <Form {...form}>
+                  <form
+                    onSubmit={form.handleSubmit(onSubmit)}
+                    className="space-y-8"
+                  >
+                    <DialogHeader>
+                      <DialogTitle>Edit profile</DialogTitle>
+                      <DialogDescription>
+                        Make changes to your profile here. Click save when
+                        you're done.
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    <FormField
+                      control={form.control}
+                      name="items"
+                      render={() => (
+                        <FormItem>
+                          <div className="mb-4">
+                            <FormLabel className="text-base">Sidebar</FormLabel>
+                            <FormDescription>
+                              Select the items you want to display in the
+                              sidebar.
+                            </FormDescription>
+                          </div>
+                          {table
+                            .getAllColumns()
+                            .filter((column) => column.getCanHide())
+                            .map((column) => {
+                              return (
+                                <FormField
+                                  key={column.id}
+                                  control={form.control}
+                                  name="items"
+                                  render={({ field }) => {
+                                    return (
+                                      <FormItem
+                                        key={column.id}
+                                        className="flex flex-row items-start space-x-3 space-y-0"
+                                      >
+                                        <FormControl>
+                                          <Checkbox
+                                            checked={field.value?.includes(
+                                              column.id
+                                            )}
+                                            onCheckedChange={(checked) => {
+                                              return checked
+                                                ? field.onChange([
+                                                    ...field.value,
+                                                    column.id,
+                                                  ])
+                                                : field.onChange(
+                                                    field.value?.filter(
+                                                      (value) =>
+                                                        value !== column.id
+                                                    )
+                                                  );
+                                            }}
+                                          />
+                                        </FormControl>
+                                        <FormLabel className="font-normal">
+                                          {columnLabels[column.id] || column.id}
+                                        </FormLabel>
+                                      </FormItem>
+                                    );
+                                  }}
+                                />
+                              );
+                            })}
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <DialogFooter>
+                      <Button type="submit">Save changes</Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
           </div>
           <div className="rounded-md border">
             <Table>
