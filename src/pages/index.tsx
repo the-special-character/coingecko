@@ -1,5 +1,4 @@
 import localFont from "next/font/local";
-import { Button } from "@/components/ui/button";
 import Highlights from "@/container/Highlights";
 import TokensTable from "@/container/TokensTable";
 
